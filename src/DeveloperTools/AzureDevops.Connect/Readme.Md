@@ -1,0 +1,27 @@
+# AzureDevops.Connect 
+
+Code sample to connect to Azure Devops using Azure AD credential. Sample covers connecting to azure devops and getting information to a git repository using windows credential.
+For the first time, it will prompt user to provide credential and for the subsequesnt request , it will cache it.
+
+Without any manual intervention, user can call Azure Devops API using windows credential.
+
+#Libraries Used
+
+<?xml version="1.0" encoding="utf-8"?>
+<packages>
+  <package id="Ben.Demystifier" version="0.1.3" targetFramework="net472" />
+  <package id="Microsoft.AspNet.WebApi.Client" version="5.2.3" targetFramework="net472" />
+  <package id="Microsoft.AspNet.WebApi.Core" version="5.2.3" targetFramework="net472" />
+  <package id="Microsoft.IdentityModel.Clients.ActiveDirectory" version="3.17.2" targetFramework="net472" />
+  <package id="Microsoft.IdentityModel.Logging" version="5.2.1" targetFramework="net472" />
+  <package id="Microsoft.IdentityModel.Tokens" version="5.2.1" targetFramework="net472" />
+  <package id="Microsoft.TeamFoundation.DistributedTask.Common.Contracts" version="16.147.0-preview" targetFramework="net472" />
+  <package id="Microsoft.TeamFoundationServer.Client" version="16.147.0-preview" targetFramework="net472" />
+  <package id="Microsoft.TeamFoundationServer.ExtendedClient" version="16.147.0-preview" targetFramework="net472" />
+  <package id="Microsoft.VisualStudio.Services.Client" version="16.147.0-preview" targetFramework="net472" />
+  <package id="Microsoft.VisualStudio.Services.InteractiveClient" version="16.147.0-preview" targetFramework="net472" />
+  <package id="Newtonsoft.Json" version="10.0.3" targetFramework="net472" />
+  <package id="System.Collections.Immutable" version="1.4.0" targetFramework="net472" />
+  <package id="System.IdentityModel.Tokens.Jwt" version="5.2.1" targetFramework="net472" />
+  <package id="System.Reflection.Metadata" version="1.5.0" targetFramework="net472" />
+</packages>
