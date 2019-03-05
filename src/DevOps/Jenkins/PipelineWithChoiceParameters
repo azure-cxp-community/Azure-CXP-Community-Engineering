@@ -1,0 +1,28 @@
+#!groovy
+import groovy.transform.Field
+import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript
+def props = []
+@Field
+def newParams = []
+node {
+    try {
+        regenerateJob = (params.RegenerateJob == null) ? true : params.RegenerateJob
+    }
+    catch (MissingPropertyException e) {
+        regenerateJob = true
+    }
+    stage('test'){
+        withCredentials([azureServicePrincipal('JENKINSSERVICEPRINCIPALCREDENTIALID')]) {
+            def shtagsoutput = sh (returnStdout: true, script: '''az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID > /dev/null
+            az account set -s $AZURE_SUBSCRIPTION_ID > /dev/null
+            shtagsoutputtemp=$(az acr repository show-tags --name "AZURECONTAINERREGISTRYNAME" --subscription $AZURE_SUBSCRIPTION_ID --repository "AZURECONTAINERREGISTRYREPOSITORYNAME" | jq '.[]')
+            shtagsoutputtempfinal=$(echo $shtagsoutputtemp | sed 's/"//g')
+            echo "${shtagsoutputtempfinal}"''').split(' ')
+        shtagsoutputfinal = [shtagsoutput].flatten()
+        newParams += [$class: 'ChoiceParameterDefinition', name: 'Phase', choices: shtagsoutputfinal]
+        newParams += [$class: 'BooleanParameterDefinition', name: 'RegenerateJob', defaultValue: false]
+        props += [$class: 'ParametersDefinitionProperty', parameterDefinitions: newParams]
+        properties(properties: props)
+        }
+    }
+}
