@@ -1,0 +1,266 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "office365_email_id": {
+      "type": "string"
+    },
+    "office365_connection_name": {
+      "defaultValue": "office365",
+      "type": "String"
+    },
+    "logic_app_name": {
+      "defaultValue": "custom-html-table",
+      "type": "String"
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "name": "[parameters('logic_app_name')]",
+      "apiVersion": "2017-07-01",
+      "location": "[resourceGroup().location]",
+      "tags": {},
+      "scale": null,
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "$connections": {
+              "defaultValue": {},
+              "type": "Object"
+            }
+          },
+          "triggers": {
+            "manual": {
+              "type": "Request",
+              "kind": "Http",
+              "inputs": {
+                "schema": {}
+              }
+            }
+          },
+          "actions": {
+            "Create_HTML_table": {
+              "runAfter": {
+                "Parse_Final_Table_Data": ["Succeeded"]
+              },
+              "type": "Table",
+              "inputs": {
+                "columns": [
+                  {
+                    "header": "No#",
+                    "value": "@item()['no']"
+                  },
+                  {
+                    "header": "Name",
+                    "value": "@item()['name']"
+                  },
+                  {
+                    "header": "Image",
+                    "value": "@item()['image']"
+                  }
+                ],
+                "format": "HTML",
+                "from": "@body('Parse_Final_Table_Data')"
+              }
+            },
+            "For_each": {
+              "foreach": "@variables('original_data')",
+              "actions": {
+                "Add_Image_as_HTML_Tag": {
+                  "runAfter": {
+                    "Parse_Row_Data": ["Succeeded"]
+                  },
+                  "type": "Compose",
+                  "inputs": "@addProperty(body('Parse_Row_Data'), 'image', concat('<img src=\"https://img.pokemondb.net/artwork/large/', toLower(body('Parse_Row_Data')?['name']), '.jpg\" height=\"64\" \\>'))"
+                },
+                "Append_to_Table_Data": {
+                  "runAfter": {
+                    "Convert_Name_to_Link_as_HTML_Tag": ["Succeeded"]
+                  },
+                  "type": "AppendToArrayVariable",
+                  "inputs": {
+                    "name": "table_data",
+                    "value": "@outputs('Convert_Name_to_Link_as_HTML_Tag')"
+                  }
+                },
+                "Convert_Name_to_Link_as_HTML_Tag": {
+                  "runAfter": {
+                    "Add_Image_as_HTML_Tag": ["Succeeded"]
+                  },
+                  "type": "Compose",
+                  "inputs": "@setProperty(outputs('Add_Image_as_HTML_Tag'), 'name', concat('<a href=\"https://pokemondb.net/pokedex/', body('Parse_Row_Data')?['name'], '\">', body('Parse_Row_Data')?['name'], '<a\\>'))"
+                },
+                "Parse_Row_Data": {
+                  "runAfter": {},
+                  "type": "ParseJson",
+                  "inputs": {
+                    "content": "@items('For_each')",
+                    "schema": {
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "no": {
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Init_Table_Data": ["Succeeded"]
+              },
+              "type": "Foreach",
+              "runtimeConfiguration": {
+                "concurrency": {
+                  "repetitions": 1
+                }
+              }
+            },
+            "Init_Table_Data": {
+              "runAfter": {
+                "Original_Data": ["Succeeded"]
+              },
+              "type": "InitializeVariable",
+              "inputs": {
+                "variables": [
+                  {
+                    "name": "table_data",
+                    "type": "Array",
+                    "value": []
+                  }
+                ]
+              }
+            },
+            "Original_Data": {
+              "runAfter": {},
+              "type": "InitializeVariable",
+              "inputs": {
+                "variables": [
+                  {
+                    "name": "original_data",
+                    "type": "Array",
+                    "value": [
+                      {
+                        "name": "Bulbasaur",
+                        "no": 1
+                      },
+                      {
+                        "name": "Ivysaur",
+                        "no": 2
+                      },
+                      {
+                        "name": "Venusaur",
+                        "no": 3
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "Parse_Final_Table_Data": {
+              "runAfter": {
+                "For_each": ["Succeeded"]
+              },
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@variables('table_data')",
+                "schema": {
+                  "items": {
+                    "properties": {
+                      "image": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "no": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": ["no", "image", "name"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "Replace_sanitized_characters": {
+              "runAfter": {
+                "Create_HTML_table": ["Succeeded"]
+              },
+              "type": "InitializeVariable",
+              "inputs": {
+                "variables": [
+                  {
+                    "name": "final_html_table",
+                    "type": "String",
+                    "value": "@{replace(replace(replace(body('Create_HTML_table'), '&lt;', '<'), '&gt;', '>'), '&quot;', '\"')}"
+                  }
+                ]
+              }
+            },
+            "Send_an_email": {
+              "runAfter": {
+                "Replace_sanitized_characters": ["Succeeded"]
+              },
+              "type": "ApiConnection",
+              "inputs": {
+                "body": {
+                  "Body": "@variables('final_html_table')",
+                  "IsHtml": true,
+                  "Subject": "Random Pokemon Table",
+                  "To": "[parameters('office365_email_id')]"
+                },
+                "host": {
+                  "connection": {
+                    "name": "@parameters('$connections')['office365']['connectionId']"
+                  }
+                },
+                "method": "post",
+                "path": "/Mail"
+              }
+            }
+          },
+          "outputs": {}
+        },
+        "parameters": {
+          "$connections": {
+            "value": {
+              "office365": {
+                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('office365_connection_name'))]",
+                "connectionName": "office365-1",
+                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/office365')]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/connections', parameters('office365_connection_name'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/connections",
+      "name": "[parameters('office365_connection_name')]",
+      "apiVersion": "2016-06-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+        "displayName": "[parameters('office365_email_id')]",
+        "customParameterValues": {},
+        "api": {
+          "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/office365')]"
+        }
+      },
+      "dependsOn": []
+    }
+  ]
+}
